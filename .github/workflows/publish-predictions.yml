@@ -22,17 +22,37 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
 
     steps:
-      - name: Checkout
+      - name: Descargar repositorio
         uses: actions/checkout@v4
 
-      - name: Setup Node
+      - name: Preparar Node
         uses: actions/setup-node@v4
         with:
           node-version: "22"
 
+      - name: Encontrar carpeta del proyecto
+        run: |
+          if [ -f "scripts/update-predictions.js" ]; then
+            echo "PROJECT_DIR=." >> "$GITHUB_ENV"
+          elif [ -f "predicciones-carlos-cloud-ready-v2/scripts/update-predictions.js" ]; then
+            echo "PROJECT_DIR=predicciones-carlos-cloud-ready-v2" >> "$GITHUB_ENV"
+          else
+            FOUND=$(find . -path "*/scripts/update-predictions.js" -print -quit)
+            if [ -z "$FOUND" ]; then
+              echo "No encontre scripts/update-predictions.js"
+              echo "Archivos encontrados:"
+              find . -maxdepth 3 -type f | sort
+              exit 1
+            fi
+            DIR=$(dirname "$(dirname "$FOUND")")
+            echo "PROJECT_DIR=${DIR#./}" >> "$GITHUB_ENV"
+          fi
+
       - name: Actualizar las tres predicciones diarias
-        working-directory: predicciones-carlos-cloud-ready-v2
-        run: node scripts/update-predictions.js
+        run: |
+          echo "Usando carpeta: $PROJECT_DIR"
+          cd "$PROJECT_DIR"
+          node scripts/update-predictions.js
         env:
           TIMEZONE: America/Havana
           PREDICTIONS_PROVIDER: auto
@@ -41,8 +61,9 @@ jobs:
           THESPORTSDB_KEY: "123"
 
       - name: Crear sitio estatico
-        working-directory: predicciones-carlos-cloud-ready-v2
-        run: node scripts/build-static-site.js
+        run: |
+          cd "$PROJECT_DIR"
+          node scripts/build-static-site.js
 
       - name: Configurar GitHub Pages
         uses: actions/configure-pages@v5
@@ -50,7 +71,7 @@ jobs:
       - name: Cargar sitio
         uses: actions/upload-pages-artifact@v4
         with:
-          path: predicciones-carlos-cloud-ready-v2/dist
+          path: ${{ env.PROJECT_DIR }}/dist
 
       - name: Publicar GitHub Pages
         id: deployment
