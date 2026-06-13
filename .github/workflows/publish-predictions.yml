@@ -1,0 +1,60 @@
+name: Publish daily predictions
+
+on:
+  schedule:
+    - cron: "20 11 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Update three daily predictions
+        run: node scripts/update-predictions.js
+        env:
+          TIMEZONE: America/Havana
+          PREDICTIONS_PROVIDER: auto
+          PREDICTIONS_MAX_MATCHES: "3"
+          PREDICTIONS_KEEP_CURRENT_ON_FAIL: "true"
+          API_FOOTBALL_KEY: ${{ secrets.API_FOOTBALL_KEY }}
+          API_FOOTBALL_LEAGUES: ${{ vars.API_FOOTBALL_LEAGUES || '39,140,135,78,61' }}
+          API_FOOTBALL_SEASON: ${{ vars.API_FOOTBALL_SEASON || '2025' }}
+          API_FOOTBALL_PREDICTIONS: "true"
+          FOOTBALL_DATA_TOKEN: ${{ secrets.FOOTBALL_DATA_TOKEN }}
+          FOOTBALL_DATA_COMPETITIONS: ${{ vars.FOOTBALL_DATA_COMPETITIONS || 'PL,PD,SA,BL1,FL1,CL' }}
+          THESPORTSDB_KEY: ${{ secrets.THESPORTSDB_KEY || '123' }}
+
+      - name: Build static site
+        run: node scripts/build-static-site.js
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload site artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: dist
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
