@@ -1,0 +1,15 @@
+{
+  "name": "predicciones-carlos",
+  "version": "0.1.0",
+  "private": true,
+  "description": "MVP gratis de pronosticos deportivos basados en estadisticas.",
+  "scripts": {
+    "start": "node server.js",
+    "check": "node --check server.js && node --check app.js && node --check scripts/sync-data.js && node --check scripts/update-predictions.js && node --check scripts/build-static-site.js",
+    "sync:data": "node scripts/sync-data.js",
+    "build": "node scripts/build-static-site.js",
+    "update:data": "node scripts/update-predictions.js",
+    "update:data:dry": "node scripts/update-predictions.js --dry-run"
+  },
+  "dependencies": {}
+}
