@@ -1,0 +1,302 @@
+{
+  "sample": true,
+  "updatedAt": "2026-06-12T09:00:00-04:00",
+  "sources": {
+    "results": "Dataset manual de ejemplo",
+    "xg": "xG estimado de ejemplo",
+    "discipline": "Tarjetas y arbitro de ejemplo",
+    "market": "Cuotas simuladas"
+  },
+  "matches": [
+    {
+      "id": "pc-001",
+      "kickoff": "2026-06-12T15:00:00-04:00",
+      "league": "Liga Modelo",
+      "country": "Demo",
+      "home": "Tigres Capital",
+      "away": "Puerto Azul",
+      "marketOdds": {
+        "home": 2.02,
+        "draw": 3.35,
+        "away": 3.8,
+        "over25": 1.92,
+        "under25": 1.94,
+        "goalsLine": 2.5
+      },
+      "lines": {
+        "corners": 8.5,
+        "cards": 4.5
+      },
+      "context": {
+        "homeAdvantage": 0.16,
+        "weatherImpact": 0.02,
+        "rivalry": false,
+        "refereeCardsAvg": 4.9
+      },
+      "stats": {
+        "home": {
+          "form": [3, 3, 1, 3, 0],
+          "xgFor": 1.74,
+          "xgAgainst": 0.92,
+          "shotsFor": 14.2,
+          "shotsAgainst": 8.9,
+          "cornersFor": 5.8,
+          "cornersAgainst": 3.7,
+          "cardsFor": 2.1,
+          "cardsAgainst": 2.8,
+          "goalsFor": 1.8,
+          "goalsAgainst": 0.8,
+          "restDays": 5,
+          "injuries": 1
+        },
+        "away": {
+          "form": [1, 0, 3, 1, 0],
+          "xgFor": 1.08,
+          "xgAgainst": 1.51,
+          "shotsFor": 10.7,
+          "shotsAgainst": 13.9,
+          "cornersFor": 4.2,
+          "cornersAgainst": 5.4,
+          "cardsFor": 2.6,
+          "cardsAgainst": 2.3,
+          "goalsFor": 1.1,
+          "goalsAgainst": 1.6,
+          "restDays": 4,
+          "injuries": 3
+        }
+      }
+    },
+    {
+      "id": "pc-002",
+      "kickoff": "2026-06-12T17:30:00-04:00",
+      "league": "Copa Internacional",
+      "country": "Demo",
+      "home": "Real Bahia",
+      "away": "Union Norte",
+      "marketOdds": {
+        "home": 2.78,
+        "draw": 3.18,
+        "away": 2.62,
+        "over25": 2.18,
+        "under25": 1.72,
+        "goalsLine": 2.5
+      },
+      "lines": {
+        "corners": 9.5,
+        "cards": 5.5
+      },
+      "context": {
+        "homeAdvantage": 0.11,
+        "weatherImpact": 0.08,
+        "rivalry": true,
+        "refereeCardsAvg": 5.7
+      },
+      "stats": {
+        "home": {
+          "form": [1, 1, 3, 0, 1],
+          "xgFor": 1.23,
+          "xgAgainst": 1.14,
+          "shotsFor": 11.9,
+          "shotsAgainst": 11.1,
+          "cornersFor": 4.7,
+          "cornersAgainst": 4.9,
+          "cardsFor": 3.1,
+          "cardsAgainst": 2.9,
+          "goalsFor": 1.2,
+          "goalsAgainst": 1.1,
+          "restDays": 3,
+          "injuries": 2
+        },
+        "away": {
+          "form": [3, 1, 3, 1, 3],
+          "xgFor": 1.36,
+          "xgAgainst": 1.05,
+          "shotsFor": 12.8,
+          "shotsAgainst": 10.4,
+          "cornersFor": 5.1,
+          "cornersAgainst": 4.5,
+          "cardsFor": 2.9,
+          "cardsAgainst": 3.2,
+          "goalsFor": 1.4,
+          "goalsAgainst": 1.0,
+          "restDays": 5,
+          "injuries": 1
+        }
+      }
+    },
+    {
+      "id": "pc-003",
+      "kickoff": "2026-06-12T19:00:00-04:00",
+      "league": "Primera B",
+      "country": "Demo",
+      "home": "Deportivo Faro",
+      "away": "Atletico Minero",
+      "marketOdds": {
+        "home": 1.92,
+        "draw": 3.4,
+        "away": 4.25,
+        "over25": 1.78,
+        "under25": 2.05,
+        "goalsLine": 2.5
+      },
+      "lines": {
+        "corners": 8.5,
+        "cards": 4.5
+      },
+      "context": {
+        "homeAdvantage": 0.18,
+        "weatherImpact": 0.01,
+        "rivalry": false,
+        "refereeCardsAvg": 3.8
+      },
+      "stats": {
+        "home": {
+          "form": [3, 3, 3, 1, 1],
+          "xgFor": 1.86,
+          "xgAgainst": 1.02,
+          "shotsFor": 15.1,
+          "shotsAgainst": 9.8,
+          "cornersFor": 6.2,
+          "cornersAgainst": 4.1,
+          "cardsFor": 1.8,
+          "cardsAgainst": 2.2,
+          "goalsFor": 2.0,
+          "goalsAgainst": 0.9,
+          "restDays": 6,
+          "injuries": 0
+        },
+        "away": {
+          "form": [0, 1, 0, 3, 0],
+          "xgFor": 0.96,
+          "xgAgainst": 1.63,
+          "shotsFor": 9.5,
+          "shotsAgainst": 14.8,
+          "cornersFor": 3.9,
+          "cornersAgainst": 5.9,
+          "cardsFor": 2.4,
+          "cardsAgainst": 2.5,
+          "goalsFor": 0.9,
+          "goalsAgainst": 1.7,
+          "restDays": 4,
+          "injuries": 2
+        }
+      }
+    },
+    {
+      "id": "pc-004",
+      "kickoff": "2026-06-12T20:45:00-04:00",
+      "league": "Liga Modelo",
+      "country": "Demo",
+      "home": "Costa Verde",
+      "away": "Ciudad Sur",
+      "marketOdds": {
+        "home": 2.32,
+        "draw": 3.45,
+        "away": 3.05,
+        "over25": 1.67,
+        "under25": 2.25,
+        "goalsLine": 2.5
+      },
+      "lines": {
+        "corners": 9.5,
+        "cards": 3.5
+      },
+      "context": {
+        "homeAdvantage": 0.13,
+        "weatherImpact": 0,
+        "rivalry": false,
+        "refereeCardsAvg": 4.2
+      },
+      "stats": {
+        "home": {
+          "form": [3, 0, 3, 3, 1],
+          "xgFor": 1.62,
+          "xgAgainst": 1.41,
+          "shotsFor": 13.8,
+          "shotsAgainst": 12.7,
+          "cornersFor": 5.5,
+          "cornersAgainst": 5.2,
+          "cardsFor": 1.7,
+          "cardsAgainst": 2.0,
+          "goalsFor": 1.7,
+          "goalsAgainst": 1.3,
+          "restDays": 5,
+          "injuries": 1
+        },
+        "away": {
+          "form": [3, 3, 0, 1, 3],
+          "xgFor": 1.71,
+          "xgAgainst": 1.32,
+          "shotsFor": 14.5,
+          "shotsAgainst": 12.1,
+          "cornersFor": 5.9,
+          "cornersAgainst": 5.1,
+          "cardsFor": 1.9,
+          "cardsAgainst": 2.3,
+          "goalsFor": 1.8,
+          "goalsAgainst": 1.2,
+          "restDays": 5,
+          "injuries": 1
+        }
+      }
+    },
+    {
+      "id": "pc-005",
+      "kickoff": "2026-06-12T22:00:00-04:00",
+      "league": "Copa Internacional",
+      "country": "Demo",
+      "home": "Marineros Este",
+      "away": "Racing Central",
+      "marketOdds": {
+        "home": 3.05,
+        "draw": 3.1,
+        "away": 2.45,
+        "over25": 2.36,
+        "under25": 1.62,
+        "goalsLine": 2.5
+      },
+      "lines": {
+        "corners": 8.5,
+        "cards": 5.5
+      },
+      "context": {
+        "homeAdvantage": 0.1,
+        "weatherImpact": 0.09,
+        "rivalry": true,
+        "refereeCardsAvg": 6.1
+      },
+      "stats": {
+        "home": {
+          "form": [1, 0, 1, 3, 0],
+          "xgFor": 1.01,
+          "xgAgainst": 1.18,
+          "shotsFor": 9.9,
+          "shotsAgainst": 11.8,
+          "cornersFor": 4.0,
+          "cornersAgainst": 5.0,
+          "cardsFor": 3.3,
+          "cardsAgainst": 3.1,
+          "goalsFor": 0.9,
+          "goalsAgainst": 1.2,
+          "restDays": 4,
+          "injuries": 2
+        },
+        "away": {
+          "form": [3, 1, 3, 3, 1],
+          "xgFor": 1.42,
+          "xgAgainst": 0.94,
+          "shotsFor": 12.2,
+          "shotsAgainst": 9.7,
+          "cornersFor": 4.8,
+          "cornersAgainst": 4.2,
+          "cardsFor": 2.8,
+          "cardsAgainst": 3.4,
+          "goalsFor": 1.4,
+          "goalsAgainst": 0.8,
+          "restDays": 6,
+          "injuries": 0
+        }
+      }
+    }
+  ]
+}
