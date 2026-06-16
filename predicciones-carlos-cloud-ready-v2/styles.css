@@ -273,6 +273,7 @@ main {
 .filters,
 .match-list-shell,
 .detail-shell,
+.plans-section,
 .data-section,
 .security-section {
   border: 1px solid var(--line);
@@ -704,9 +705,54 @@ main {
 }
 
 .data-section,
+.plans-section,
 .security-section {
   margin-top: 18px;
   padding: 16px;
+}
+
+.plans-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.plan-card {
+  min-height: 168px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface-strong);
+}
+
+.plan-card.is-featured {
+  border-color: var(--green);
+  box-shadow: inset 0 3px 0 var(--green);
+}
+
+.plan-label {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: var(--green-soft);
+  color: var(--green);
+  font-size: 0.74rem;
+  font-weight: 900;
+}
+
+.plan-card strong {
+  display: block;
+  margin-top: 14px;
+  font-size: 1.55rem;
+}
+
+.plan-card p {
+  margin: 10px 0 0;
+  color: var(--muted);
+  line-height: 1.45;
 }
 
 .data-ledger {
@@ -782,6 +828,7 @@ main {
   }
 
   .data-ledger,
+  .plans-grid,
   .security-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -848,6 +895,7 @@ main {
   }
 
   .data-ledger,
+  .plans-grid,
   .security-grid {
     grid-template-columns: 1fr;
   }
@@ -887,6 +935,7 @@ main {
 
   .match-list-shell,
   .detail-shell,
+  .plans-section,
   .data-section,
   .security-section {
     padding: 12px;

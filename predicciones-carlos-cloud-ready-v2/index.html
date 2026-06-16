@@ -55,6 +55,7 @@
       <nav class="nav-links" aria-label="Secciones">
         <a href="#pronosticos">Pronosticos</a>
         <a href="#modelo">Modelo</a>
+        <a href="#planes">Planes</a>
         <a href="#datos">Datos</a>
         <a href="#seguridad">Seguridad</a>
       </nav>
@@ -69,7 +70,7 @@
         <div class="scoreboard-media" aria-hidden="true"></div>
         <div class="scoreboard-content">
           <div class="scoreboard-title">
-            <p class="eyebrow">Hoy · <span id="currentDateLabel">cargando</span></p>
+            <p class="eyebrow">Hoy - <span id="currentDateLabel">cargando</span></p>
             <h1 id="pageTitle">Predicciones Carlos</h1>
             <p class="status-line">
               <span class="status-dot"></span>
@@ -155,7 +156,7 @@
           <div class="section-heading">
             <div>
               <p class="eyebrow">Mejores pronosticos</p>
-              <h2 id="matchesTitle">Agenda del dia</h2>
+              <h2 id="matchesTitle">Agenda priorizada</h2>
             </div>
             <span class="pill" id="visibleCount">0 visibles</span>
           </div>
@@ -199,6 +200,34 @@
           <h3>Riesgo</h3>
           <p>Separacion entre probabilidades, confianza minima y valor frente a cuotas normalizadas.</p>
         </article>
+      </section>
+
+      <section class="plans-section" id="planes" aria-labelledby="plansTitle">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Monetizacion</p>
+            <h2 id="plansTitle">Planes de suscripcion</h2>
+          </div>
+          <span class="pill">Proximamente</span>
+        </div>
+
+        <div class="plans-grid" aria-label="Planes futuros">
+          <article class="plan-card">
+            <span class="plan-label">Gratis</span>
+            <strong>$0</strong>
+            <p>Vista diaria con picks seleccionados, resumen de confianza y mercados principales.</p>
+          </article>
+          <article class="plan-card is-featured">
+            <span class="plan-label">Pro</span>
+            <strong>Pronto</strong>
+            <p>Mas ligas, historial de aciertos, alertas y picks filtrados por mercado.</p>
+          </article>
+          <article class="plan-card">
+            <span class="plan-label">Premium</span>
+            <strong>Pronto</strong>
+            <p>Panel avanzado, seguimiento por cuotas, picks privados y reportes de rendimiento.</p>
+          </article>
+        </div>
       </section>
 
       <section class="data-section" id="datos" aria-labelledby="dataTitle">

@@ -10,6 +10,111 @@ const samplePath = path.join(root, "data", "sample-matches.json");
 
 const DEFAULT_TIMEZONE = "America/Havana";
 const DEFAULT_THESPORTSDB_KEY = "123";
+const DEFAULT_MAX_MATCHES = 5;
+const DEFAULT_API_FOOTBALL_LEAGUES = "1:2026,2:2025,3:2025,39:2025,140:2025,135:2025,78:2025,61:2025,128:2026,71:2026,262:2025,253:2026";
+const DEFAULT_FOOTBALL_DATA_COMPETITIONS = "WC,CL,PL,PD,SA,BL1,FL1";
+const DEFAULT_THESPORTSDB_LEAGUES = [
+  "FIFA World Cup",
+  "UEFA Champions League",
+  "UEFA Europa League",
+  "UEFA Europa Conference League",
+  "English Premier League",
+  "Spanish La Liga",
+  "Italian Serie A",
+  "German Bundesliga",
+  "French Ligue 1",
+  "Copa Libertadores",
+  "Copa Sudamericana",
+  "Major League Soccer",
+  "Argentine Primera Division",
+  "Brazilian Serie A",
+  "Mexican Primera League",
+  "Austrian Bundesliga",
+].join(",");
+
+const LEAGUE_PRIORITY = [
+  [/world cup|fifa/i, 100],
+  [/champions league/i, 96],
+  [/europa league/i, 92],
+  [/conference league/i, 88],
+  [/premier league|england/i, 86],
+  [/la liga|spain/i, 84],
+  [/serie a|italy/i, 82],
+  [/bundesliga|germany/i, 80],
+  [/ligue 1|france/i, 78],
+  [/libertadores/i, 76],
+  [/sudamericana/i, 74],
+  [/major league soccer|mls/i, 72],
+  [/argentine|argentina/i, 70],
+  [/brazil|brasileirao|serie a/i, 68],
+  [/mexican|liga mx|mexico/i, 66],
+  [/austrian bundesliga|austria/i, 48],
+  [/irish premier|regionalliga|reserve|u19|u21|youth|women/i, 8],
+];
+
+const TEAM_STRENGTH_PRIORS = new Map(Object.entries({
+  argentina: 0.95,
+  france: 0.94,
+  brazil: 0.93,
+  spain: 0.91,
+  england: 0.9,
+  germany: 0.88,
+  portugal: 0.87,
+  netherlands: 0.86,
+  italy: 0.84,
+  belgium: 0.82,
+  croatia: 0.8,
+  uruguay: 0.79,
+  colombia: 0.78,
+  morocco: 0.76,
+  switzerland: 0.75,
+  japan: 0.74,
+  denmark: 0.74,
+  senegal: 0.73,
+  usa: 0.72,
+  "united states": 0.72,
+  mexico: 0.71,
+  ecuador: 0.7,
+  austria: 0.7,
+  iran: 0.69,
+  scotland: 0.68,
+  "ivory coast": 0.68,
+  "cote divoire": 0.68,
+  algeria: 0.67,
+  australia: 0.66,
+  chile: 0.66,
+  norway: 0.66,
+  serbia: 0.65,
+  poland: 0.65,
+  tunisia: 0.64,
+  egypt: 0.64,
+  peru: 0.63,
+  "south korea": 0.63,
+  korea: 0.63,
+  paraguay: 0.62,
+  "costa rica": 0.6,
+  venezuela: 0.6,
+  "new zealand": 0.55,
+  jordan: 0.49,
+  haiti: 0.42,
+  curacao: 0.34,
+  "real madrid": 0.95,
+  barcelona: 0.92,
+  "manchester city": 0.94,
+  liverpool: 0.91,
+  arsenal: 0.89,
+  "bayern munich": 0.92,
+  "paris saint germain": 0.9,
+  psg: 0.9,
+  inter: 0.87,
+  "ac milan": 0.84,
+  juventus: 0.84,
+  "atletico madrid": 0.86,
+  "borussia dortmund": 0.83,
+  chelsea: 0.82,
+  "manchester united": 0.81,
+  tottenham: 0.8,
+}));
 
 main().catch((error) => {
   console.error(error.message || error);
@@ -21,16 +126,29 @@ async function main() {
   const env = loadEnv(root);
   const date = args.date || env.PREDICTIONS_DATE || todayInTimezone(env.TIMEZONE || DEFAULT_TIMEZONE);
   const timezone = args.timezone || env.TIMEZONE || DEFAULT_TIMEZONE;
-  const maxMatches = Number(args.max || env.PREDICTIONS_MAX_MATCHES || 12);
+  const maxMatches = Number(args.max || env.PREDICTIONS_MAX_MATCHES || DEFAULT_MAX_MATCHES);
+  const lookaheadDays = Number(args.lookaheadDays || env.PREDICTIONS_LOOKAHEAD_DAYS || 2);
   const provider = args.provider || env.PREDICTIONS_PROVIDER || "auto";
 
   const keepCurrentOnFallback =
     args.keepCurrentOnFallback || env.PREDICTIONS_KEEP_CURRENT_ON_FAIL !== "false";
   const requestedSample = provider === "sample";
 
-  const result = await fetchDataset(provider, env, { date, timezone, maxMatches });
+  if (args.recalculateCurrent) {
+    const dataset = recalculateCurrentDataset({ date, timezone, lookaheadDays });
+    if (args.dryRun) {
+      console.log(summary(dataset, true));
+      return;
+    }
+    fs.writeFileSync(jsonPath, `${JSON.stringify(dataset, null, 2)}\n`, "utf8");
+    runSyncData();
+    console.log(summary(dataset, false));
+    return;
+  }
+
+  const result = await fetchDataset(provider, env, { date, timezone, maxMatches, lookaheadDays });
   let dataset = result.matches.length
-    ? buildDataset(result.provider, result.matches, result.sources, result.notices, { date, timezone })
+    ? buildDataset(result.provider, result.matches, result.sources, result.notices, { date, timezone, lookaheadDays })
     : fallbackDataset(result.provider, result.notices, { date, timezone });
 
   if (keepCurrentOnFallback && !requestedSample && dataset.provider === "sample") {
@@ -99,32 +217,42 @@ async function fetchFromProvider(name, env, options) {
   }
 }
 
-async function fetchApiFootball(env, { date, timezone, maxMatches }) {
+async function fetchApiFootball(env, { date, timezone, maxMatches, lookaheadDays }) {
   if (!env.API_FOOTBALL_KEY) {
     throw new Error("falta API_FOOTBALL_KEY en .env");
   }
 
   const fixtures = [];
-  const leagues = list(env.API_FOOTBALL_LEAGUES);
+  const leagues = parseLeagueSpecs(env.API_FOOTBALL_LEAGUES || DEFAULT_API_FOOTBALL_LEAGUES);
   const season = env.API_FOOTBALL_SEASON || seasonForDate(date);
 
-  if (leagues.length) {
-    for (const league of leagues) {
+  for (const fixtureDate of dateWindow(date, lookaheadDays)) {
+    if (!leagues.length) {
       const payload = await apiFootball(env.API_FOOTBALL_KEY, "fixtures", {
-        date,
+        date: fixtureDate,
         timezone,
-        league,
-        season,
       });
       fixtures.push(...(payload.response || []));
+      if (fixtures.length >= maxMatches) break;
+      continue;
     }
-  } else {
-    const payload = await apiFootball(env.API_FOOTBALL_KEY, "fixtures", { date, timezone });
-    fixtures.push(...(payload.response || []));
+
+    for (const spec of leagues) {
+      const payload = await apiFootball(env.API_FOOTBALL_KEY, "fixtures", {
+        date: fixtureDate,
+        timezone,
+        league: spec.id,
+        season: spec.season || season,
+      });
+      fixtures.push(...(payload.response || []));
+      if (fixtures.length >= maxMatches) break;
+    }
+    if (fixtures.length >= maxMatches) break;
   }
 
   const scheduled = fixtures
     .filter((item) => item.fixture && item.teams && !isFinishedStatus(item.fixture.status && item.fixture.status.short))
+    .sort((a, b) => leagueScore(b.league && b.league.name, b.league && b.league.country) - leagueScore(a.league && a.league.name, a.league && a.league.country))
     .slice(0, maxMatches);
 
   const predictions = new Map();
@@ -209,17 +337,15 @@ function hintsFromApiFootballPrediction(prediction) {
   };
 }
 
-async function fetchFootballData(env, { date, maxMatches }) {
+async function fetchFootballData(env, { date, maxMatches, lookaheadDays }) {
   if (!env.FOOTBALL_DATA_TOKEN) {
     throw new Error("falta FOOTBALL_DATA_TOKEN en .env");
   }
 
   const url = new URL("https://api.football-data.org/v4/matches");
   url.searchParams.set("dateFrom", date);
-  url.searchParams.set("dateTo", date);
-  if (env.FOOTBALL_DATA_COMPETITIONS) {
-    url.searchParams.set("competitions", env.FOOTBALL_DATA_COMPETITIONS);
-  }
+  url.searchParams.set("dateTo", addDays(date, lookaheadDays));
+  url.searchParams.set("competitions", env.FOOTBALL_DATA_COMPETITIONS || DEFAULT_FOOTBALL_DATA_COMPETITIONS);
 
   const payload = await fetchJson(url, {
     headers: {
@@ -231,6 +357,10 @@ async function fetchFootballData(env, { date, maxMatches }) {
 
   const matches = (payload.matches || [])
     .filter((match) => !isFinishedStatus(match.status))
+    .sort((a, b) =>
+      leagueScore(b.competition && b.competition.name, b.area && b.area.name) -
+      leagueScore(a.competition && a.competition.name, a.area && a.area.name)
+    )
     .slice(0, maxMatches)
     .map(fromFootballDataMatch);
 
@@ -260,18 +390,40 @@ function fromFootballDataMatch(match) {
   });
 }
 
-async function fetchTheSportsDb(env, { date, maxMatches }) {
+async function fetchTheSportsDb(env, { date, maxMatches, lookaheadDays }) {
   const key = env.THESPORTSDB_KEY || DEFAULT_THESPORTSDB_KEY;
-  const url = new URL(`https://www.thesportsdb.com/api/v1/json/${key}/eventsday.php`);
-  url.searchParams.set("d", date);
-  url.searchParams.set("s", "Soccer");
-  if (env.THESPORTSDB_LEAGUE) {
-    url.searchParams.set("l", env.THESPORTSDB_LEAGUE);
+  const preferredLeagues = list(env.THESPORTSDB_LEAGUES || DEFAULT_THESPORTSDB_LEAGUES);
+  const eventMap = new Map();
+  const notices = [];
+
+  for (const fixtureDate of dateWindow(date, lookaheadDays)) {
+    const payload = await theSportsDbEventsDay(key, fixtureDate, "");
+    for (const event of payload.events || []) {
+      if (event.strHomeTeam && event.strAwayTeam) {
+        eventMap.set(String(event.idEvent), event);
+      }
+    }
+    if (eventMap.size >= maxMatches) break;
   }
 
-  const payload = await fetchJson(url);
-  const matches = (payload.events || [])
+  if (eventMap.size < maxMatches && env.THESPORTSDB_QUERY_PREFERRED_LEAGUES !== "false") {
+    for (const fixtureDate of dateWindow(date, lookaheadDays)) {
+      for (const league of preferredLeagues) {
+        const payload = await theSportsDbEventsDay(key, fixtureDate, league);
+        for (const event of payload.events || []) {
+          if (event.strHomeTeam && event.strAwayTeam) {
+            eventMap.set(String(event.idEvent), event);
+          }
+        }
+        if (eventMap.size >= maxMatches) break;
+      }
+      if (eventMap.size >= maxMatches) break;
+    }
+  }
+
+  const events = Array.from(eventMap.values())
     .filter((event) => event.strHomeTeam && event.strAwayTeam)
+    .sort((a, b) => leagueScore(b.strLeague, b.strCountry) - leagueScore(a.strLeague, a.strCountry))
     .slice(0, maxMatches)
     .map(fromTheSportsDbEvent);
 
@@ -279,11 +431,24 @@ async function fetchTheSportsDb(env, { date, maxMatches }) {
     provider: "thesportsdb",
     sources: {
       fixtures: "TheSportsDB eventsday",
+      leagues: preferredLeagues.join(", "),
       notes: "Free key 123 is public and limited; use for schedules, not deep betting data.",
     },
-    notices: [`TheSportsDB: ${matches.length} partidos importados.`],
-    matches,
+    notices: [
+      `TheSportsDB: ${events.length} partidos importados.`,
+      `Ventana: ${date} a ${addDays(date, lookaheadDays)}.`,
+      ...notices,
+    ],
+    matches: events,
   };
+}
+
+async function theSportsDbEventsDay(key, date, league) {
+  const url = new URL(`https://www.thesportsdb.com/api/v1/json/${key}/eventsday.php`);
+  url.searchParams.set("d", date);
+  url.searchParams.set("s", "Soccer");
+  if (league) url.searchParams.set("l", league);
+  return fetchJson(url);
 }
 
 function fromTheSportsDbEvent(event) {
@@ -355,8 +520,15 @@ function fetchSample({ date, timezone }) {
 }
 
 function baseMatch(input) {
-  const stats = estimatedStats(input.home, input.away, input.league, input.hints || {});
+  const league = cleanText(input.league, "Football");
+  const country = cleanText(input.country, "");
+  const home = cleanText(input.home, "Local");
+  const away = cleanText(input.away, "Visitante");
+  const stats = estimatedStats(home, away, league, input.hints || {});
   const totalGoals = stats.home.xgFor * 0.58 + stats.away.xgFor * 0.58;
+  const projectedCorners =
+    (stats.home.cornersFor + stats.away.cornersAgainst + stats.away.cornersFor + stats.home.cornersAgainst) / 2;
+  const projectedCards = stats.home.cardsFor + stats.away.cardsFor;
 
   return {
     id: input.id,
@@ -364,15 +536,15 @@ function baseMatch(input) {
     provider: input.provider,
     dataQuality: input.dataQuality,
     kickoff: input.kickoff || new Date().toISOString(),
-    league: input.league,
-    country: input.country || "",
-    home: input.home,
-    away: input.away,
+    league,
+    country,
+    home,
+    away,
     marketOdds: input.marketOdds || {},
     lines: {
       goals: 2.5,
-      corners: totalGoals >= 2.7 ? 9.5 : 8.5,
-      cards: stats.home.cardsFor + stats.away.cardsFor >= 5.2 ? 5.5 : 4.5,
+      corners: projectedCorners >= 9.4 ? 9.5 : 8.5,
+      cards: projectedCards >= 5.2 ? 5.5 : 4.5,
     },
     context: {
       homeAdvantage: 0.12,
@@ -387,17 +559,20 @@ function baseMatch(input) {
 function estimatedStats(home, away, league, hints) {
   const homeSeed = seeded(`${league}:${home}`);
   const awaySeed = seeded(`${league}:${away}`);
-  const homeForm = validPct(hints.homeForm, 0.46 + homeSeed * 0.24);
-  const awayForm = validPct(hints.awayForm, 0.46 + awaySeed * 0.24);
-  const homeAttack = validPct(hints.homeAttack, 0.45 + homeSeed * 0.28);
-  const awayAttack = validPct(hints.awayAttack, 0.45 + awaySeed * 0.28);
-  const homeDefense = validPct(hints.homeDefense, 0.45 + (1 - homeSeed) * 0.22);
-  const awayDefense = validPct(hints.awayDefense, 0.45 + (1 - awaySeed) * 0.22);
+  const homeQuality = teamStrength(home, homeSeed);
+  const awayQuality = teamStrength(away, awaySeed);
+  const homeForm = validPct(hints.homeForm, 0.4 + homeQuality * 0.36 + homeSeed * 0.08);
+  const awayForm = validPct(hints.awayForm, 0.4 + awayQuality * 0.36 + awaySeed * 0.08);
+  const homeAttack = validPct(hints.homeAttack, 0.39 + homeQuality * 0.42 + homeSeed * 0.08);
+  const awayAttack = validPct(hints.awayAttack, 0.39 + awayQuality * 0.42 + awaySeed * 0.08);
+  const homeDefense = validPct(hints.homeDefense, 0.38 + homeQuality * 0.36 + (1 - homeSeed) * 0.08);
+  const awayDefense = validPct(hints.awayDefense, 0.38 + awayQuality * 0.36 + (1 - awaySeed) * 0.08);
+  const qualityEdge = homeQuality - awayQuality;
 
-  const homeXgFor = clamp(0.85 + homeAttack * 1.25 + homeForm * 0.34 + 0.12, 0.65, 2.55);
-  const awayXgFor = clamp(0.82 + awayAttack * 1.2 + awayForm * 0.32 - 0.04, 0.55, 2.45);
-  const homeXgAgainst = clamp(1.85 - homeDefense * 1.15 + awayAttack * 0.18, 0.55, 2.2);
-  const awayXgAgainst = clamp(1.88 - awayDefense * 1.12 + homeAttack * 0.22, 0.55, 2.25);
+  const homeXgFor = clamp(0.85 + homeAttack * 1.25 + homeForm * 0.34 + 0.12 + qualityEdge * 0.5, 0.65, 2.55);
+  const awayXgFor = clamp(0.82 + awayAttack * 1.2 + awayForm * 0.32 - 0.04 - qualityEdge * 0.5, 0.55, 2.45);
+  const homeXgAgainst = clamp(1.85 - homeDefense * 1.15 + awayAttack * 0.18 - qualityEdge * 0.35, 0.55, 2.2);
+  const awayXgAgainst = clamp(1.88 - awayDefense * 1.12 + homeAttack * 0.22 + qualityEdge * 0.35, 0.55, 2.25);
 
   return {
     home: teamStats(homeSeed, homeForm, homeXgFor, homeXgAgainst, true),
@@ -412,8 +587,8 @@ function teamStats(seed, form, xgFor, xgAgainst, isHome) {
     xgAgainst: round(xgAgainst),
     shotsFor: round(8.8 + xgFor * 3.0 + seed * 2.3),
     shotsAgainst: round(8.6 + xgAgainst * 2.7 + (1 - seed) * 2.1),
-    cornersFor: round(3.3 + xgFor * 1.35 + seed * 1.2),
-    cornersAgainst: round(3.4 + xgAgainst * 1.15 + (1 - seed) * 0.9),
+    cornersFor: round(2.35 + xgFor * 0.92 + seed * 0.72),
+    cornersAgainst: round(2.45 + xgAgainst * 0.78 + (1 - seed) * 0.58),
     cardsFor: round(1.6 + (1 - form) * 1.25 + seed * 0.5),
     cardsAgainst: round(1.8 + form * 0.75 + (1 - seed) * 0.4),
     goalsFor: round(xgFor * 0.92),
@@ -442,6 +617,7 @@ function buildDataset(provider, matches, sources, notices, meta) {
     provider,
     updatedAt: new Date().toISOString(),
     generatedFor: meta.date,
+    generatedTo: addDays(meta.date, meta.lookaheadDays || 0),
     timezone: meta.timezone,
     sources,
     notices,
@@ -463,6 +639,38 @@ function fallbackDataset(provider, notices, meta) {
       ...(notices || []),
       `${provider}: no se genero dataset vivo; se conserva muestra local.`,
     ],
+  };
+}
+
+function recalculateCurrentDataset(meta) {
+  const current = JSON.parse(fs.readFileSync(jsonPath, "utf8"));
+  const matches = (current.matches || []).map((match) =>
+    baseMatch({
+      id: match.id,
+      providerId: match.providerId,
+      provider: match.provider || current.provider || "manual",
+      dataQuality: match.dataQuality || "fixtures+baseline-estimates",
+      kickoff: match.kickoff,
+      league: match.league,
+      country: match.country,
+      home: match.home,
+      away: match.away,
+      marketOdds: match.marketOdds || {},
+      hints: {},
+    }),
+  );
+
+  return {
+    ...current,
+    updatedAt: new Date().toISOString(),
+    generatedFor: meta.date || current.generatedFor,
+    generatedTo: addDays(meta.date || current.generatedFor || todayInTimezone(meta.timezone || DEFAULT_TIMEZONE), meta.lookaheadDays || 0),
+    timezone: meta.timezone || current.timezone || DEFAULT_TIMEZONE,
+    notices: [
+      "Dataset recalibrado localmente con balance de mercados.",
+      ...(Array.isArray(current.notices) ? current.notices.slice(-2) : []),
+    ],
+    matches,
   };
 }
 
@@ -577,6 +785,50 @@ function list(value) {
     .filter(Boolean);
 }
 
+function cleanText(value, fallback = "") {
+  let text = String(value || fallback || "").trim();
+  if (!text) text = fallback;
+
+  if (/[ÃÂ]/.test(text)) {
+    const decoded = Buffer.from(text, "latin1").toString("utf8");
+    if (!decoded.includes("\uFFFD")) text = decoded;
+  }
+
+  return text
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^\x20-\x7E]/g, "")
+    .replace(/\s+/g, " ")
+    .trim() || fallback;
+}
+
+function teamStrength(name, seed) {
+  const key = cleanText(name, "").toLowerCase();
+  if (!key) return 0.44 + seed * 0.24;
+  if (TEAM_STRENGTH_PRIORS.has(key)) return TEAM_STRENGTH_PRIORS.get(key);
+
+  for (const [knownName, strength] of TEAM_STRENGTH_PRIORS) {
+    if (key.includes(knownName) || knownName.includes(key)) return strength;
+  }
+
+  return 0.44 + seed * 0.24;
+}
+
+function parseLeagueSpecs(value) {
+  return list(value).map((item) => {
+    const [id, season] = item.split(":").map((part) => part.trim());
+    return { id, season };
+  });
+}
+
+function leagueScore(name = "", country = "") {
+  const text = `${name} ${country}`;
+  for (const [pattern, score] of LEAGUE_PRIORITY) {
+    if (pattern.test(text)) return score;
+  }
+  return 35;
+}
+
 function todayInTimezone(timezone) {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: timezone,
@@ -586,6 +838,20 @@ function todayInTimezone(timezone) {
   }).formatToParts(new Date());
   const lookup = Object.fromEntries(parts.map((part) => [part.type, part.value]));
   return `${lookup.year}-${lookup.month}-${lookup.day}`;
+}
+
+function dateWindow(startDate, lookaheadDays) {
+  const days = [];
+  for (let offset = 0; offset <= lookaheadDays; offset += 1) {
+    days.push(addDays(startDate, offset));
+  }
+  return days;
+}
+
+function addDays(date, amount) {
+  const parsed = new Date(`${date}T00:00:00Z`);
+  parsed.setUTCDate(parsed.getUTCDate() + Number(amount || 0));
+  return parsed.toISOString().slice(0, 10);
 }
 
 function seasonForDate(date) {

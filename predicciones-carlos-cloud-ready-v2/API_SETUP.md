@@ -68,7 +68,7 @@ Cambiar fecha:
 
 Ejecuta `scripts/update-predictions.js` una vez al dia, por ejemplo 7:00 AM, y despues publica la carpeta en tu hosting.
 
-Para no depender de la laptop, usa el workflow `.github/workflows/publish-predictions.yml`. Ese proceso corre en GitHub, genera 3 sugerencias diarias y publica la pagina.
+Para no depender de la laptop, usa el workflow `.github/workflows/publish-predictions.yml`. Ese proceso corre en GitHub, genera 5 sugerencias diarias y publica la pagina.
 
 No pongas un boton publico para refrescar datos desde la web. Eso gastaria tu cuota gratis y podria ser usado por bots.
 

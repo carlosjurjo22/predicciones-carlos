@@ -31,7 +31,7 @@ Workflow:
 Hace esto automaticamente:
 
 1. Corre todos los dias a las `11:20 UTC`, que son las `07:20` en Cuba cuando aplica UTC-4.
-2. Busca partidos y genera las 3 sugerencias diarias.
+2. Busca partidos y genera las 5 sugerencias diarias.
 3. Construye una version publica en `dist/`.
 4. Publica la pagina con GitHub Pages.
 

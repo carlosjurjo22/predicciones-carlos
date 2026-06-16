@@ -27,6 +27,20 @@
     agresivo: 1,
   };
 
+  const marketWeights = {
+    "1x2": 1.08,
+    goals: 1.05,
+    cards: 0.96,
+    corners: 0.48,
+  };
+
+  const marketFeaturedLimit = {
+    "1x2": 2,
+    goals: 2,
+    cards: 1,
+    corners: 0,
+  };
+
   document.addEventListener("DOMContentLoaded", boot);
 
   async function boot() {
@@ -194,8 +208,12 @@
         const marketOk =
           state.market === "all" ||
           analysis.recommendations.some((item) => item.marketKey === state.market);
-        const riskOk = state.risk === "all" || analysis.bestPick.risk === state.risk;
-        const valueOk = !state.valueOnly || analysis.bestPick.value >= 0.035;
+        const riskOk =
+          state.risk === "all" ||
+          analysis.recommendations.some((item) => item.risk === state.risk);
+        const valueOk =
+          !state.valueOnly ||
+          analysis.recommendations.some((item) => item.value >= 0.035);
         return (
           (state.league === "all" || match.league === state.league) &&
           marketOk &&
@@ -209,19 +227,23 @@
           return new Date(a.match.kickoff) - new Date(b.match.kickoff);
         }
         if (state.sort === "value") {
-          return b.bestPick.value - a.bestPick.value || b.bestPick.confidence - a.bestPick.confidence;
+          const pickA = getFeaturedPick(a);
+          const pickB = getFeaturedPick(b);
+          return pickB.value - pickA.value || pickB.confidence - pickA.confidence;
         }
-        return b.bestPick.confidence - a.bestPick.confidence || riskRank[b.bestPick.risk] - riskRank[a.bestPick.risk];
+        const pickA = getFeaturedPick(a);
+        const pickB = getFeaturedPick(b);
+        return pickB.confidence - pickA.confidence || riskRank[pickB.risk] - riskRank[pickA.risk];
       });
   }
 
   function updateKpis(items) {
     const matchCount = items.length;
     const avgConfidence = matchCount
-      ? items.reduce((sum, item) => sum + item.bestPick.confidence, 0) / matchCount
+      ? items.reduce((sum, item) => sum + getFeaturedPick(item).confidence, 0) / matchCount
       : 0;
-    const strong = items.filter((item) => item.bestPick.confidence >= 0.66).length;
-    const value = items.filter((item) => item.bestPick.value >= 0.035).length;
+    const strong = items.filter((item) => getFeaturedPick(item).confidence >= 0.66).length;
+    const value = items.filter((item) => getFeaturedPick(item).value >= 0.035).length;
 
     els.kpiMatches.textContent = matchCount;
     els.kpiConfidence.textContent = `${toPercent(avgConfidence)}%`;
@@ -241,7 +263,7 @@
 
   function matchCard(analysis) {
     const match = analysis.match;
-    const best = analysis.bestPick;
+    const best = getFeaturedPick(analysis);
     const isActive = match.id === state.selectedId ? " is-active" : "";
     const probs = analysis.probabilities;
 
@@ -288,7 +310,8 @@
     }
 
     const match = analysis.match;
-    const risk = analysis.bestPick.risk;
+    const featured = getFeaturedPick(analysis);
+    const risk = featured.risk;
     els.detailRisk.textContent = capitalize(risk);
     els.detailRisk.className = `pill risk-badge risk-${risk}`;
 
@@ -309,7 +332,7 @@
       </div>
 
       <ul class="recommendations">
-        ${analysis.recommendations.map(recommendationRow).join("")}
+        ${sortRecommendationsForCurrentFilters(analysis.recommendations).map(recommendationRow).join("")}
       </ul>
 
       <div class="detail-grid">
@@ -345,12 +368,45 @@
     `;
   }
 
+  function getFeaturedPick(analysis) {
+    if (state.market === "all" && state.risk === "all" && !state.valueOnly) {
+      return analysis.bestPick;
+    }
+
+    let picks = analysis.recommendations.slice();
+    if (state.market !== "all") {
+      picks = picks.filter((item) => item.marketKey === state.market);
+    }
+    if (state.risk !== "all") {
+      picks = picks.filter((item) => item.risk === state.risk);
+    }
+    if (state.valueOnly) {
+      picks = picks.filter((item) => item.value >= 0.035);
+    }
+    return picks[0] || analysis.bestPick;
+  }
+
+  function sortRecommendationsForCurrentFilters(recommendations) {
+    return recommendations.slice().sort((a, b) => {
+      const aMatch = (state.risk === "all" || a.risk === state.risk) &&
+        (state.market === "all" || a.marketKey === state.market);
+      const bMatch = (state.risk === "all" || b.risk === state.risk) &&
+        (state.market === "all" || b.marketKey === state.market);
+      if (aMatch !== bMatch) return aMatch ? -1 : 1;
+      if (state.market === "all" && a.marketKey !== b.marketKey) {
+        if (a.marketKey === "corners") return 1;
+        if (b.marketKey === "corners") return -1;
+      }
+      return b.score - a.score;
+    });
+  }
+
   function metricRow(label, value) {
     return `<div class="metric-row"><span>${escapeHtml(label)}</span><strong>${escapeHtml(String(value))}</strong></div>`;
   }
 
   function analyzeDataset(dataset) {
-    return (dataset.matches || []).map(analyzeMatch);
+    return balanceFeaturedPicks((dataset.matches || []).map(analyzeMatch));
   }
 
   function analyzeMatch(match) {
@@ -402,9 +458,9 @@
     const totalGoals = homeGoals + awayGoals;
     const totalCorners = clamp(
       (home.cornersFor + away.cornersAgainst + away.cornersFor + home.cornersAgainst) / 2 +
-        (home.shotsFor + away.shotsFor - 22) * 0.08,
+        (home.shotsFor + away.shotsFor - 22) * 0.035,
       5.2,
-      14.8,
+      11.2,
     );
     const totalCards = clamp(
       (home.cardsFor + away.cardsAgainst + away.cardsFor + home.cardsAgainst) / 2 +
@@ -419,9 +475,9 @@
     const goalPick = pickGoals(goalModel, totalGoals, marketOdds);
     const cornerPick = pickCorners(totalCorners, match.lines || {});
     const cardPick = pickCards(totalCards, match.lines || {});
-    const recommendations = [resultPick, goalPick, cornerPick, cardPick].sort(
-      (a, b) => b.confidence + b.value * 0.35 - (a.confidence + a.value * 0.35),
-    );
+    const recommendations = [resultPick, goalPick, cornerPick, cardPick]
+      .map(scorePick)
+      .sort((a, b) => b.score - a.score);
 
     return {
       match,
@@ -517,6 +573,7 @@
       value: top.value,
       valueSource: implied.available ? "odds" : "none",
       risk: riskFromConfidence(confidence),
+      priority: "Alta",
       note: `Brecha 1X2 de ${toPercent(gap)} puntos.`,
     };
   }
@@ -540,6 +597,7 @@
       value,
       valueSource: hasGoalOdds ? "odds" : "none",
       risk: riskFromConfidence(confidence),
+      priority: "Alta",
       note: `Media proyectada: ${totalGoals.toFixed(2)} goles.`,
     };
   }
@@ -547,16 +605,17 @@
   function pickCorners(totalCorners, lines) {
     const line = Number(lines.corners || 8.5);
     const diff = totalCorners - line;
-    const confidence = clamp(0.5 + Math.abs(diff) * 0.09, 0, 0.82);
+    const confidence = clamp(0.46 + Math.abs(diff) * 0.035, 0, 0.62);
 
     return {
       market: `Corners ${line}`,
       marketKey: "corners",
       pick: diff >= 0 ? `Alta de ${line} corners` : `Baja de ${line} corners`,
       confidence,
-      value: Math.abs(diff) / 24,
+      value: Math.abs(diff) / 60,
       valueSource: "line",
       risk: riskFromConfidence(confidence),
+      priority: "Media",
       note: `Proyeccion: ${totalCorners.toFixed(1)} corners.`,
     };
   }
@@ -574,8 +633,37 @@
       value: Math.abs(diff) / 22,
       valueSource: "line",
       risk: riskFromConfidence(confidence),
+      priority: "Media",
       note: `Proyeccion: ${totalCards.toFixed(1)} tarjetas.`,
     };
+  }
+
+  function scorePick(pick) {
+    const score = (pick.confidence * 100 + pick.value * 28) * (marketWeights[pick.marketKey] || 1);
+    return { ...pick, score };
+  }
+
+  function balanceFeaturedPicks(analyses) {
+    const marketCounts = {};
+    const ordered = analyses
+      .map((analysis) => ({
+        analysis,
+        topScore: analysis.recommendations[0] ? analysis.recommendations[0].score : 0,
+      }))
+      .sort((a, b) => b.topScore - a.topScore);
+
+    ordered.forEach(({ analysis }) => {
+      const featured =
+        analysis.recommendations.find((pick) => {
+          const used = marketCounts[pick.marketKey] || 0;
+          return used < (marketFeaturedLimit[pick.marketKey] || 1);
+        }) || analysis.recommendations[0];
+
+      marketCounts[featured.marketKey] = (marketCounts[featured.marketKey] || 0) + 1;
+      analysis.bestPick = featured;
+    });
+
+    return analyses.sort((a, b) => b.bestPick.score - a.bestPick.score);
   }
 
   function buildReasons(match, stats) {
@@ -662,6 +750,8 @@
 
   function formatTime(value) {
     return new Intl.DateTimeFormat("es", {
+      day: "2-digit",
+      month: "short",
       hour: "2-digit",
       minute: "2-digit",
     }).format(new Date(value));
