@@ -10,6 +10,7 @@
     valueOnly: false,
     selectedId: null,
     analyses: [],
+    statusTimer: null,
   };
 
   const els = {};
@@ -107,10 +108,7 @@
       render();
     });
 
-    els.recalculateButton.addEventListener("click", () => {
-      state.analyses = analyzeDataset(getDataset());
-      render();
-    });
+    els.recalculateButton.addEventListener("click", refreshPredictions);
 
     els.matchList.addEventListener("click", (event) => {
       const card = event.target.closest("[data-match-id]");
@@ -121,32 +119,109 @@
   }
 
   async function hydrateData() {
-    if (window.location.protocol !== "file:") {
-      try {
-        const response = await fetch("/api/predictions", {
-          headers: { Accept: "application/json" },
-          cache: "no-store",
-        });
-        if (response.ok) {
-          window.PC_MATCHES = await response.json();
-        }
-      } catch (error) {
-        console.warn("Usando datos locales por fallback.", error);
-      }
-    }
-
-    const dataset = getDataset();
-    state.analyses = analyzeDataset(dataset);
-    state.selectedId = state.analyses[0] ? state.analyses[0].match.id : null;
-    renderLeagueOptions(dataset.matches || []);
-    renderDataLedger(dataset);
-    els.dataStatus.textContent = dataset.sample
-      ? "Datos de muestra listos"
-      : `Datos conectados: ${dataset.provider || "api"}`;
+    const publishedDataset = await fetchPublishedDataset(false);
+    applyDataset(publishedDataset || getDataset(), false);
   }
 
   function getDataset() {
     return window.PC_MATCHES || { updatedAt: null, sample: true, matches: [] };
+  }
+
+  async function refreshPredictions() {
+    const previousUpdatedAt = getDataset().updatedAt || "";
+    setRefreshUi(true, "Buscando datos actualizados...");
+
+    try {
+      const dataset = await fetchPublishedDataset(true);
+      if (!dataset) throw new Error("No se encontro data/matches.json");
+
+      applyDataset(dataset, true);
+      render();
+
+      const count = (dataset.matches || []).length;
+      const sameVersion = previousUpdatedAt && previousUpdatedAt === dataset.updatedAt;
+      showStatusMessage(
+        sameVersion
+          ? `Ya tienes la version publicada mas reciente: ${count} pronosticos.`
+          : `Datos actualizados: ${count} pronosticos publicados.`,
+      );
+    } catch (error) {
+      console.warn("No se pudo traer data/matches.json; recalculando datos cargados.", error);
+      state.analyses = analyzeDataset(getDataset());
+      render();
+      showStatusMessage("Recalculado con los datos cargados. Nuevos partidos se publican desde GitHub Actions.");
+    } finally {
+      setRefreshUi(false);
+    }
+  }
+
+  async function fetchPublishedDataset(noCache) {
+    if (window.location.protocol === "file:") return null;
+
+    const urls = [];
+    if (!window.location.hostname.endsWith("github.io")) {
+      urls.push(new URL("/api/predictions", window.location.origin).toString());
+    }
+
+    const staticUrl = new URL("data/matches.json", window.location.href);
+    if (noCache) staticUrl.searchParams.set("v", String(Date.now()));
+    urls.push(staticUrl.toString());
+
+    for (const url of urls) {
+      try {
+        const response = await fetch(url, {
+          headers: { Accept: "application/json" },
+          cache: noCache ? "reload" : "no-store",
+        });
+        if (!response.ok) continue;
+        const dataset = await response.json();
+        if (dataset && Array.isArray(dataset.matches)) return dataset;
+      } catch (error) {
+        console.warn("Fuente no disponible:", url, error);
+      }
+    }
+
+    return null;
+  }
+
+  function applyDataset(dataset, preserveSelection) {
+    window.PC_MATCHES = dataset;
+    state.analyses = analyzeDataset(dataset);
+
+    const selectedStillExists = state.analyses.some((item) => item.match.id === state.selectedId);
+    if (!preserveSelection || !selectedStillExists) {
+      state.selectedId = state.analyses[0] ? state.analyses[0].match.id : null;
+    }
+
+    if (state.league !== "all" && !(dataset.matches || []).some((match) => match.league === state.league)) {
+      state.league = "all";
+    }
+
+    renderLeagueOptions(dataset.matches || []);
+    renderDataLedger(dataset);
+    updateDataStatus(dataset);
+  }
+
+  function updateDataStatus(dataset) {
+    const count = (dataset.matches || []).length;
+    const stale = dataset.generatedFor && dataset.generatedFor < todayIso();
+    els.dataStatus.textContent = dataset.sample
+      ? `Datos de muestra listos: ${count} pronosticos`
+      : stale
+        ? `Datos de ${formatDateOnly(dataset.generatedFor)} - pendiente de actualizacion`
+        : `Datos conectados: ${dataset.provider || "api"} - ${count} pronosticos`;
+  }
+
+  function setRefreshUi(isLoading, message) {
+    els.recalculateButton.disabled = isLoading;
+    els.recalculateButton.classList.toggle("is-loading", isLoading);
+    if (message) els.dataStatus.textContent = message;
+  }
+
+  function showStatusMessage(message) {
+    clearTimeout(state.statusTimer);
+    els.dataStatus.textContent = message;
+    state.statusTimer = setTimeout(() => updateDataStatus(getDataset()), 5200);
   }
 
   function setCurrentDate() {
@@ -159,12 +234,30 @@
     }).format(now);
   }
 
+  function todayIso() {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const day = String(now.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  }
+
+  function formatDateOnly(value) {
+    const parsed = new Date(`${value}T00:00:00`);
+    if (Number.isNaN(parsed.getTime())) return value;
+    return new Intl.DateTimeFormat("es", {
+      day: "2-digit",
+      month: "short",
+    }).format(parsed);
+  }
+
   function renderLeagueOptions(matches) {
     const leagues = Array.from(new Set(matches.map((match) => match.league))).sort();
     els.leagueFilter.innerHTML = [
       '<option value="all">Todas</option>',
       ...leagues.map((league) => `<option value="${escapeHtml(league)}">${escapeHtml(league)}</option>`),
     ].join("");
+    els.leagueFilter.value = state.league;
   }
 
   function renderDataLedger(dataset) {

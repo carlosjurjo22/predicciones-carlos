@@ -11,6 +11,7 @@ const samplePath = path.join(root, "data", "sample-matches.json");
 const DEFAULT_TIMEZONE = "America/Havana";
 const DEFAULT_THESPORTSDB_KEY = "123";
 const DEFAULT_MAX_MATCHES = 5;
+const DEFAULT_LOOKAHEAD_DAYS = 7;
 const DEFAULT_API_FOOTBALL_LEAGUES = "1:2026,2:2025,3:2025,39:2025,140:2025,135:2025,78:2025,61:2025,128:2026,71:2026,262:2025,253:2026";
 const DEFAULT_FOOTBALL_DATA_COMPETITIONS = "WC,CL,PL,PD,SA,BL1,FL1";
 const DEFAULT_THESPORTSDB_LEAGUES = [
@@ -127,7 +128,8 @@ async function main() {
   const date = args.date || env.PREDICTIONS_DATE || todayInTimezone(env.TIMEZONE || DEFAULT_TIMEZONE);
   const timezone = args.timezone || env.TIMEZONE || DEFAULT_TIMEZONE;
   const maxMatches = Number(args.max || env.PREDICTIONS_MAX_MATCHES || DEFAULT_MAX_MATCHES);
-  const lookaheadDays = Number(args.lookaheadDays || env.PREDICTIONS_LOOKAHEAD_DAYS || 2);
+  const requestedLookaheadDays = Number(args.lookaheadDays || env.PREDICTIONS_LOOKAHEAD_DAYS || DEFAULT_LOOKAHEAD_DAYS);
+  const lookaheadDays = Math.max(requestedLookaheadDays, DEFAULT_LOOKAHEAD_DAYS);
   const provider = args.provider || env.PREDICTIONS_PROVIDER || "auto";
 
   const keepCurrentOnFallback =
@@ -169,17 +171,40 @@ async function main() {
 async function fetchDataset(provider, env, options) {
   const attempts = provider === "auto" ? providerOrder(env) : [provider];
   const notices = [];
+  let partial = null;
 
   for (const name of attempts) {
     try {
       const result = await fetchFromProvider(name, env, options);
       if (result.matches.length) {
-        return { ...result, notices: [...notices, ...(result.notices || [])] };
+        partial = partial ? mergeProviderResults(partial, result, options.maxMatches) : result;
+
+        if (provider !== "auto" || partial.matches.length >= options.maxMatches) {
+          return { ...partial, notices: [...notices, ...(partial.notices || [])] };
+        }
+
+        notices.push(
+          ...(result.notices || []),
+          `${name}: trajo ${result.matches.length} partidos; buscando hasta completar ${options.maxMatches}.`,
+        );
+        continue;
       }
       notices.push(`${name}: sin partidos para ${options.date}.`);
     } catch (error) {
       notices.push(`${name}: ${error.message}`);
     }
+  }
+
+  if (partial && partial.matches.length) {
+    return {
+      ...partial,
+      provider: partial.provider || "mixed",
+      notices: [
+        ...notices,
+        ...(partial.notices || []),
+        `Se publican ${partial.matches.length} partidos porque las APIs gratis no devolvieron mas fixtures vivos.`,
+      ],
+    };
   }
 
   return {
@@ -188,6 +213,40 @@ async function fetchDataset(provider, env, options) {
     sources: {},
     notices,
   };
+}
+
+function mergeProviderResults(current, incoming, maxMatches) {
+  const seen = new Set((current.matches || []).map(matchKey));
+  const matches = [...(current.matches || [])];
+
+  for (const match of incoming.matches || []) {
+    const key = matchKey(match);
+    if (seen.has(key)) continue;
+    matches.push(match);
+    seen.add(key);
+    if (matches.length >= maxMatches) break;
+  }
+
+  return {
+    provider: current.provider === incoming.provider ? current.provider : "mixed",
+    sources: {
+      ...(current.sources || {}),
+      [`${incoming.provider || "provider"}Fixtures`]: incoming.sources && incoming.sources.fixtures
+        ? incoming.sources.fixtures
+        : "fixtures",
+    },
+    notices: [...(current.notices || []), ...(incoming.notices || [])],
+    matches,
+  };
+}
+
+function matchKey(match) {
+  return [
+    cleanText(match.league, "").toLowerCase(),
+    cleanText(match.home, "").toLowerCase(),
+    cleanText(match.away, "").toLowerCase(),
+    String(match.kickoff || "").slice(0, 10),
+  ].join("|");
 }
 
 function providerOrder(env) {

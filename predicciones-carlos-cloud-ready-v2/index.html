@@ -8,7 +8,13 @@
       content="Predicciones Carlos: pronosticos deportivos gratis basados en estadisticas, forma reciente, goles esperados, corners y tarjetas."
     >
     <title>Predicciones Carlos</title>
+    <meta property="og:title" content="Predicciones Carlos">
+    <meta property="og:description" content="Pronosticos deportivos gratis basados en estadisticas, forma reciente y valor de mercado.">
+    <meta property="og:image" content="https://carlosjurjo22.github.io/predicciones-carlos/assets/logo-pc.png">
+    <link rel="icon" type="image/png" href="assets/logo-pc.png">
+    <link rel="apple-touch-icon" href="assets/logo-pc.png">
     <link rel="preload" as="image" href="assets/analytics-hero.png">
+    <link rel="preload" as="image" href="assets/logo-pc.png">
     <link rel="stylesheet" href="styles.css">
   </head>
   <body>
@@ -45,7 +51,9 @@
 
     <header class="topbar">
       <a class="brand" href="#pronosticos" aria-label="Predicciones Carlos">
-        <span class="brand-mark">PC</span>
+        <span class="brand-mark" aria-hidden="true">
+          <img src="assets/logo-pc.png" alt="">
+        </span>
         <span>
           <strong>Predicciones Carlos</strong>
           <small>pronosticos gratis</small>
@@ -60,7 +68,7 @@
         <a href="#seguridad">Seguridad</a>
       </nav>
 
-      <button class="icon-button" id="recalculateButton" type="button" title="Recalcular pronosticos" aria-label="Recalcular pronosticos">
+      <button class="icon-button" id="recalculateButton" type="button" title="Actualizar datos publicados" aria-label="Actualizar datos publicados">
         <svg aria-hidden="true"><use href="#icon-refresh"></use></svg>
       </button>
     </header>

@@ -1,9 +1,9 @@
 window.PC_MATCHES = {
   "sample": false,
   "provider": "thesportsdb",
-  "updatedAt": "2026-06-16T15:21:04.130Z",
+  "updatedAt": "2026-06-16T17:05:51.810Z",
   "generatedFor": "2026-06-16",
-  "generatedTo": "2026-06-18",
+  "generatedTo": "2026-06-23",
   "timezone": "America/Havana",
   "sources": {
     "fixtures": "TheSportsDB eventsday",
@@ -13,7 +13,10 @@ window.PC_MATCHES = {
   "notices": [
     "Dataset recalibrado localmente con balance de mercados.",
     "TheSportsDB: 5 partidos importados.",
-    "Ventana: 2026-06-16 a 2026-06-18."
+    "Ventana: 2026-06-16 a 2026-06-18.",
+    "thesportsdb: fetch failed",
+    "sample: usando datos locales para 2026-06-17 (America/Havana).",
+    "Se conservaron los ultimos datos reales porque la actualizacion no trajo partidos vivos."
   ],
   "matches": [
     {
@@ -351,5 +354,7 @@ window.PC_MATCHES = {
         }
       }
     }
-  ]
+  ],
+  "lastUpdateAttemptAt": "2026-06-17T12:43:42.148Z",
+  "lastUpdateStatus": "kept-current-after-provider-failure"
 };
